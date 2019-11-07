@@ -5,6 +5,8 @@ using OpenQA.Selenium.Support.UI;
 using System;
 using System.Configuration;
 using OpenQA.Selenium;
+using OpenQA.Selenium.Appium;
+using OpenQA.Selenium.Interactions;
 
 namespace winappview
 {
@@ -17,10 +19,10 @@ namespace winappview
     {
         // Test Session Properties
         protected readonly string WindowsApplicationDriverUrl = ConfigurationManager.AppSettings["WindowsApplicationDriverUrl"];
-        protected readonly string TapDirectory = ConfigurationManager.AppSettings["TapDirectory"];
+        protected readonly string Directory = ConfigurationManager.AppSettings["Directory"];
         protected readonly string DeviceName = ConfigurationManager.AppSettings["DeviceName"];
         protected static WindowsDriver<WindowsElement> driver;
-        protected static DesiredCapabilities appCapabilities;
+        protected static AppiumOptions opt;
 
         //Types of element finding methods.
         public enum WaitType
@@ -60,16 +62,21 @@ namespace winappview
                 });
             }
             // If no element was found in the given time frame, press "Enter" to close a popup or error message and try again.
-            catch (WebDriverTimeoutException)
+            catch (Exception ex)
             {
-                if (firstAttempt)
+                if (ex is WebDriverTimeoutException || ex is WebDriverException)
                 {
-                    driver.Keyboard.SendKeys(Keys.Enter);
-                    Wait(waitType, waitString, false);
-                }
-                else
-                {
-                    throw;
+                    if (firstAttempt)
+                    {
+                        Actions actions = new Actions(driver);
+                        actions.SendKeys(Keys.Enter);
+                        actions.Perform();
+                        Wait(waitType, waitString, false);
+                    }
+                    else
+                    {
+                        throw;
+                    }
                 }
             }
         }
@@ -77,7 +84,7 @@ namespace winappview
         //Generates a new connection to the driver
         public void NewSession()
         {
-            driver = new WindowsDriver<WindowsElement>(new Uri(WindowsApplicationDriverUrl), appCapabilities);
+            driver = new WindowsDriver<WindowsElement>(new Uri(WindowsApplicationDriverUrl), opt);
         }
 
         #region Setup
@@ -90,10 +97,10 @@ namespace winappview
         {
             if (driver == null)
             {
-                appCapabilities = new DesiredCapabilities();
-                appCapabilities.SetCapability("deviceName", DeviceName);
-                appCapabilities.SetCapability("app", TapDirectory);
-                driver = new WindowsDriver<WindowsElement>(new Uri(WindowsApplicationDriverUrl), appCapabilities);
+                opt = new AppiumOptions();
+                opt.AddAdditionalCapability("app", Directory);
+                opt.AddAdditionalCapability("deviceName", DeviceName);
+                driver = new WindowsDriver<WindowsElement>(new Uri(WindowsApplicationDriverUrl), opt);
                 Assert.IsNotNull(driver);
                 Assert.IsNotNull(driver.SessionId);
                 // Set implicit timeout to 1.5 seconds to make element search to retry every 500 ms for at most three times
